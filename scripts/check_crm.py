@@ -85,6 +85,7 @@ class InstalledCrmTest(unittest.TestCase):
         user_id = self.admin("GET", "App/user")["user"]["id"]
         phones, emails = remote["phoneNumberData"], remote["emailAddressData"]
         phones[0]["optOut"] = emails[0]["optOut"] = True
+        phones[0]["type"] = "Personal"
         self.admin("PUT", "Lead/" + lead_id, {
             "status": "In Process", "description": "Тест: перезвонить завтра",
             "assignedUserId": user_id, "website": "https://manager.example.invalid/",
@@ -104,6 +105,7 @@ class InstalledCrmTest(unittest.TestCase):
         self.assertEqual(remote["website"], "https://manager.example.invalid/")
         self.assertTrue(remote["doNotCall"])
         self.assertTrue(remote["phoneNumberData"][0]["optOut"])
+        self.assertEqual(remote["phoneNumberData"][0]["type"], "Personal")
         self.assertTrue(next(e for e in remote["emailAddressData"]
                              if e["emailAddress"] == "crm-test@example.invalid")["optOut"])
         self.assertEqual(len(json.loads(remote["cMapSources"])), 3)

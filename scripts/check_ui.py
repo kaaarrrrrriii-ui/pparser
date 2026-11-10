@@ -23,7 +23,7 @@ def main():
             expect(page.locator("#login")).to_have_count(0, timeout=30000)
             expect(page.locator('a[data-action="create"]')).to_be_visible(timeout=30000)
             expect(page.locator('#navbar .menu-container')).to_have_count(0)
-            expect(page.locator('.lead-status-tabs button')).to_have_count(6, timeout=30000)
+            expect(page.locator('.lead-status-tabs button')).to_have_count(8, timeout=30000)
             in_progress = page.locator('.lead-status-tabs button').filter(has_text="В работе")
             in_progress.click()
             expect(in_progress).to_have_class("btn btn-default active")
@@ -56,6 +56,32 @@ def main():
                 "Заметка из браузерного тестаВторая строка")
             assert page.locator('[data-action="convert"]').count() == 0, "Convert action is still present"
             assert page.locator('[data-action="duplicate"]').count() == 0, "Duplicate action is still present"
+            buttons = page.locator('.lead-status-actions button')
+            expect(buttons).to_have_count(7)
+            expect(page.locator('.lead-status-actions button[data-status="Send Offer"]')).to_have_text("Отправить оффер")
+            expect(page.locator('.lead-status-actions button[data-status="Cold Email"]')).to_have_text("Cold-email")
+            expect(page.locator('.lead-status-actions button[data-status="New"]')).to_have_class("btn btn-primary")
+            callback = page.locator('.lead-status-actions button[data-status="Recycled"]')
+            expect(callback).to_have_text("Перезвонить позже")
+            with page.expect_response(lambda r: f"/api/v1/Lead/{lead_id}" in r.url and
+                                      r.request.method in ("PUT", "PATCH")) as changed:
+                callback.click()
+            assert changed.value.ok and changed.value.json()["status"] == "Recycled", changed.value.status
+            expect(callback).to_have_class("btn btn-primary")
+            expect(page.locator('.field[data-name="status"]')).to_contain_text("Перезвонить позже")
+            page.locator('button[data-action="edit"], a[data-action="edit"]').first.click()
+            expect(page.locator('.lead-status-actions')).to_be_hidden()
+            page.locator('button[data-action="cancelEdit"], a[data-action="cancelEdit"], button[data-action="cancel"]').first.click()
+            expect(page.locator('.lead-status-actions')).to_be_visible()
+            phone_number = "+7999" + str(uuid.uuid4().int)[:7]
+            for phone_type, label in (("Personal", "Личный"), ("Administrator", "Администратор"), ("Office", "Не уточнён")):
+                response = context.request.put(base + "/api/v1/Lead/" + lead_id, data={"phoneNumberData": [
+                    {"phoneNumber": phone_number, "primary": True, "type": phone_type}]},
+                    headers={"Origin": base})
+                assert response.ok, f"Phone update returned HTTP {response.status}"
+                page.reload()
+                expect(page.locator('.field[data-name="phoneNumber"]')).to_contain_text(label, timeout=30000)
+                expect(page.locator('.lead-status-actions button[data-status="Recycled"]')).to_have_class("btn btn-primary")
             page.screenshot(path=str(artifacts / "crm-lead.png"), full_page=True)
             page.reload()
             expect(page.locator('.field[data-name="accountName"]')).to_contain_text(name, timeout=30000)

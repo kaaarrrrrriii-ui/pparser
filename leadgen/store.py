@@ -43,6 +43,9 @@ class Store:
                     PRIMARY KEY(job_id,source,source_id)
                 );
             """)
+            if "removed_from_crm" not in {row["name"] for row in db.execute("PRAGMA table_info(companies)")}:
+                # Set when a manager deletes the lead in the CRM; such companies are never sent again.
+                db.execute("ALTER TABLE companies ADD COLUMN removed_from_crm INTEGER NOT NULL DEFAULT 0")
             # Canonicalize legacy URLs and backfill per-source metrics.
             for observation in db.execute("SELECT source,source_id,data FROM observations").fetchall():
                 record = json.loads(observation["data"])
@@ -167,6 +170,17 @@ class Store:
         with self.connect() as db:
             db.execute("UPDATE companies SET synced_revision=?,crm_id=?,error=NULL WHERE id=?",
                        (revision, crm_id, company_id))
+
+    def filtered(self, company_id, revision, reason):
+        """Keep the company locally, acknowledge this revision and record why it was not sent."""
+        with self.connect() as db:
+            db.execute("UPDATE companies SET synced_revision=?,error=? WHERE id=?", (revision, reason, company_id))
+
+    def removed(self, company_id, revision, reason):
+        """Remember that the lead was deleted in the CRM so later collections do not recreate it."""
+        with self.connect() as db:
+            db.execute("UPDATE companies SET synced_revision=?,crm_id=NULL,error=?,removed_from_crm=1 WHERE id=?",
+                       (revision, reason, company_id))
 
     def sync_error(self, company_id, error):
         with self.connect() as db:

@@ -55,6 +55,7 @@ services:
     entrypoint: [/bin/sh, /opt/leadgen/setup-crm.sh]
     environment:
       ESPO_API_KEY: ${ESPO_API_KEY:?Run python3 scripts/setup.py}
+      NOTIFIER_API_KEY: ${NOTIFIER_API_KEY:-}
       LEADGEN_PUBLIC_URL: ${LEADGEN_PUBLIC_URL:-http://localhost:8090}
     volumes:
       - crm-data:/var/www/html/data
@@ -94,9 +95,30 @@ services:
     depends_on:
       crm-setup:
         condition: service_completed_successfully
+  notifier:
+    build:
+      context: .
+      dockerfile: docker/notifier.Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      ESPO_URL: http://espocrm
+      ESPO_PUBLIC_URL: ${ESPO_PUBLIC_URL:-http://localhost:8080}
+      NOTIFIER_API_KEY: ${NOTIFIER_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_PROXY: ${TELEGRAM_PROXY:-}
+      NOTIFIER_TZ: Asia/Yekaterinburg
+      NOTIFIER_DIGEST_TIME: "09:30"
+    volumes:
+      - notifier-data:/data
+    depends_on:
+      crm-setup:
+        condition: service_completed_successfully
 volumes:
   db:
   crm-data:
   crm-custom:
   crm-client-custom:
   collector-data:
+  notifier-data:

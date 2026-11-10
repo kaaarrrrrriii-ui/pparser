@@ -7,12 +7,21 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .franchise import chain_reason, domain_cities
+
 
 class EspoHttpError(RuntimeError):
     def __init__(self, status, method):
         self.status = status
         self.method = method
         super().__init__(f"EspoCRM: HTTP {status}. Проверьте доступ API, поля и права роли.")
+
+
+class LeadRemoved(RuntimeError):
+    """The lead was sent earlier but no longer exists in the CRM: a manager deleted it."""
+
+
+REMOVED_REASON = "Удалён из CRM вручную, повторно не отправляется"
 
 
 class EspoClient:
@@ -57,6 +66,10 @@ class EspoClient:
             existing = self.request("GET", "Lead/" + existing["id"])
             if existing.get("cLeadgenId") != row["id"]:
                 raise RuntimeError("В EspoCRM изменился cLeadgenId найденного лида. Импорт остановлен.")
+        if not existing and row.get("crm_id"):
+            # Recreating it would bring back a lead the manager removed (and the CRM keeps the
+            # deleted row's unique cLeadgenId, so the insert fails anyway).
+            raise LeadRemoved(REMOVED_REASON)
         data = row["data"]
         payload = {
             "cLeadgenId": row["id"], "cWebsiteStatus": data["website_status"],
@@ -102,11 +115,26 @@ def sync(store, client=None):
     client = client or EspoClient()
     errors = []
     count = 0
+    filtered = 0
+    cities = domain_cities(store.companies())
     for row in store.companies(pending=True):
+        # A lead already in the CRM may hold manager work, so it is never withheld afterwards.
+        if row.get("removed_from_crm"):
+            store.filtered(row["id"], row["revision"], row["error"] or REMOVED_REASON)
+            filtered += 1
+            continue
+        reason = "" if row["crm_id"] else chain_reason(row["data"], cities)
+        if reason:
+            store.filtered(row["id"], row["revision"], reason)
+            filtered += 1
+            continue
         try:
             crm_id = client.upsert(row)
             store.synced(row["id"], row["revision"], crm_id)
             count += 1
+        except LeadRemoved as exc:
+            store.removed(row["id"], row["revision"], str(exc))
+            filtered += 1
         except Exception as exc:
             store.sync_error(row["id"], str(exc))
             errors.append({"id": row["id"], "error": str(exc)})
@@ -115,4 +143,4 @@ def sync(store, client=None):
             if not (isinstance(exc, EspoHttpError) and exc.method in ("POST", "PUT")
                     and exc.status in (400, 409, 422)):
                 break
-    return {"synced": count, "errors": errors, "pending": len(store.companies(pending=True))}
+    return {"synced": count, "filtered": filtered, "errors": errors, "pending": len(store.companies(pending=True))}

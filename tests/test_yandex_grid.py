@@ -17,7 +17,7 @@ class GridTest(unittest.TestCase):
         self.addCleanup(self.stack.close)
         if importlib.util.find_spec("httpx") is None:
             self.stack.enter_context(patch.dict(sys.modules, {"httpx": types.ModuleType("httpx")}))
-        spec = importlib.util.spec_from_file_location("test_yamaps", Path(__file__).resolve().parents[1] / "yamaps_parser/yamaps_parser.py")
+        spec = importlib.util.spec_from_file_location("test_yamaps", Path(__file__).resolve().parents[1] / "vendor/yamaps_parser/yamaps_parser.py")
         self.module = importlib.util.module_from_spec(spec)
         self.stack.enter_context(patch.dict(sys.modules, {"test_yamaps": self.module}))
         spec.loader.exec_module(self.module)

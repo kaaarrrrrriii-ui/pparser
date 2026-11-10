@@ -29,9 +29,16 @@
       "New": "Новый",
       "Assigned": "Назначен",
       "In Process": "В работе",
+      "Send Offer": "Отправить оффер",
+      "Cold Email": "Cold-email",
       "Converted": "Успешно",
-      "Recycled": "Позже",
+      "Recycled": "Перезвонить позже",
       "Dead": "Отказ"
+    },
+    "phoneNumber": {
+      "Office": "Не уточнён",
+      "Personal": "Личный",
+      "Administrator": "Администратор"
     }
   },
   "tooltips": {

@@ -16,6 +16,35 @@
     "accountName": {
       "required": true
     },
+    "status": {
+      "options": [
+        "New",
+        "Assigned",
+        "In Process",
+        "Send Offer",
+        "Cold Email",
+        "Converted",
+        "Recycled",
+        "Dead"
+      ],
+      "style": {
+        "Assigned": "primary",
+        "In Process": "warning",
+        "Send Offer": "primary",
+        "Cold Email": "primary",
+        "Converted": "success",
+        "Recycled": "info",
+        "Dead": "info"
+      }
+    },
+    "phoneNumber": {
+      "typeList": [
+        "Office",
+        "Personal",
+        "Administrator"
+      ],
+      "defaultType": "Office"
+    },
     "cLeadgenId": {
       "type": "varchar",
       "maxLength": 32,
